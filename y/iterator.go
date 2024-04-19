@@ -64,6 +64,7 @@ type Iterator interface {
 
 	// All iterators should be closed so that file garbage collection works.
 	Close() error
+	SeekToFirst()
 }
 
 type elem struct {

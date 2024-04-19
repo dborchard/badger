@@ -659,7 +659,9 @@ func writeLevel0Table(s *segring.Segment, f *os.File) error {
 	b := table.NewTableBuilder()
 	defer b.Close()
 	for iter.SeekToFirst(); iter.Valid(); iter.Next() {
-		if err := b.Add(iter.Key(), iter.Value()); err != nil {
+		k := iter.Key()
+		v := iter.Value()
+		if err := b.Add(k, v); err != nil {
 			return err
 		}
 	}

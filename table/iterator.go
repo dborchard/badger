@@ -201,6 +201,11 @@ type Iterator struct {
 	reversed bool
 }
 
+func (itr *Iterator) SeekToFirst() {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewIterator returns a new iterator of the Table
 func (t *Table) NewIterator(reversed bool) *Iterator {
 	t.IncrRef() // Important.
@@ -426,6 +431,11 @@ type ConcatIterator struct {
 	iters    []*Iterator // Corresponds to tables.
 	tables   []*Table    // Disregarding reversed, this is in ascending order.
 	reversed bool
+}
+
+func (s *ConcatIterator) SeekToFirst() {
+	//TODO implement me
+	panic("implement me")
 }
 
 // NewConcatIterator creates a new concatenated iterator

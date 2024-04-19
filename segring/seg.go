@@ -161,8 +161,8 @@ func (s *Segment) Empty() bool {
 	return s.Len() == 0
 }
 
-func (s *Segment) NewIterator() SegIterator {
-	return SegIterator{
+func (s *Segment) NewIterator() y.Iterator {
+	return &SegIterator{
 		iter: s.tree.Iter(),
 	}
 }
