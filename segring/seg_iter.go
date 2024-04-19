@@ -38,7 +38,7 @@ func (s SegIterator) Value() y.ValueStruct {
 }
 
 func (s SegIterator) Valid() bool {
-	return s.err != nil
+	return s.err == nil
 }
 
 func (s SegIterator) Close() error {

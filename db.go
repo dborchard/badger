@@ -323,8 +323,6 @@ func (db *DB) Close() (err error) {
 	// Stop writes next.
 	db.closers.writes.SignalAndWait()
 
-	db.canFn()
-
 	// Now close the value log.
 	if vlogErr := db.vlog.Close(); err == nil {
 		err = errors.Wrap(vlogErr, "DB.Close")
@@ -364,6 +362,8 @@ func (db *DB) Close() (err error) {
 
 	db.closers.memtable.Wait()
 	db.elog.Printf("Memtable flushed")
+
+	db.canFn()
 
 	db.closers.compactors.SignalAndWait()
 	db.elog.Printf("Compaction finished")

@@ -75,7 +75,9 @@ func TestWrite(t *testing.T) {
 	defer kv.Close()
 
 	for i := 0; i < 100; i++ {
+		fmt.Printf("Writing key: %d\n", i)
 		txnSet(t, kv, []byte(fmt.Sprintf("key%d", i)), []byte(fmt.Sprintf("val%d", i)), 0x00)
+		fmt.Printf("Writing key: %d done\n", i)
 	}
 }
 
