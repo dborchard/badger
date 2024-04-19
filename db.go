@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"container/heap"
 	"expvar"
+	"github.com/dgraph-io/badger/segring"
 	"log"
 	"math"
 	"os"
@@ -30,7 +31,6 @@ import (
 
 	"golang.org/x/net/trace"
 
-	"github.com/dgraph-io/badger/skl"
 	"github.com/dgraph-io/badger/table"
 	"github.com/dgraph-io/badger/y"
 	"github.com/pkg/errors"
@@ -61,8 +61,7 @@ type DB struct {
 
 	closers   closers
 	elog      trace.EventLog
-	mt        *skl.Skiplist   // Our latest (actively written) in-memory table
-	imm       []*skl.Skiplist // Add here only AFTER pushing to flushChan.
+	mt        *segring.SegRing
 	opt       Options
 	manifest  *manifestFile
 	lc        *levelsController
@@ -167,7 +166,7 @@ func replayFunction(out *DB) func(entry, valuePointer) error {
 // Open returns a new DB object.
 func Open(opt Options) (db *DB, err error) {
 	opt.maxBatchSize = (15 * opt.MaxTableSize) / 100
-	opt.maxBatchCount = opt.maxBatchSize / int64(skl.MaxNodeSize)
+	opt.maxBatchCount = opt.maxBatchSize / int64(94)
 
 	for _, path := range []string{opt.Dir, opt.ValueDir} {
 		dirExists, err := exists(path)
@@ -230,7 +229,6 @@ func Open(opt Options) (db *DB, err error) {
 	heap.Init(&orc.commitMark)
 
 	db = &DB{
-		imm:           make([]*skl.Skiplist, 0, opt.NumMemtables),
 		flushChan:     make(chan flushTask, opt.NumMemtables),
 		writeCh:       make(chan *request, kvWriteChCapacity),
 		opt:           opt,
@@ -243,7 +241,7 @@ func Open(opt Options) (db *DB, err error) {
 
 	db.closers.updateSize = y.NewCloser(1)
 	go db.updateSize(db.closers.updateSize)
-	db.mt = skl.NewSkiplist(arenaSize(opt))
+	db.mt = segring.New()
 
 	// newLevelsController potentially loads files in directory.
 	if db.lc, err = newLevelsController(db, &manifest); err != nil {
@@ -414,30 +412,6 @@ func syncDir(dir string) error {
 		return errors.Wrapf(err, "While syncing directory: %s.", dir)
 	}
 	return errors.Wrapf(closeErr, "While closing directory: %s.", dir)
-}
-
-// getMemtables returns the current memtables and get references.
-func (db *DB) getMemTables() ([]*skl.Skiplist, func()) {
-	db.RLock()
-	defer db.RUnlock()
-
-	tables := make([]*skl.Skiplist, len(db.imm)+1)
-
-	// Get mutable memtable.
-	tables[0] = db.mt
-	tables[0].IncrRef()
-
-	// Get immutable memtables.
-	last := len(db.imm) - 1
-	for i := range db.imm {
-		tables[i+1] = db.imm[last-i]
-		tables[i+1].IncrRef()
-	}
-	return tables, func() {
-		for _, tbl := range tables {
-			tbl.DecrRef()
-		}
-	}
 }
 
 // get returns the value in memtable or disk for given key.
@@ -649,7 +623,8 @@ func (db *DB) sendToWriteCh(entries []*entry) (*request, error) {
 
 // batchSet applies a list of badger.Entry. If a request level error occurs it
 // will be returned.
-//   Check(kv.BatchSet(entries))
+//
+//	Check(kv.BatchSet(entries))
 func (db *DB) batchSet(entries []*entry) error {
 	req, err := db.sendToWriteCh(entries)
 	if err != nil {
@@ -666,9 +641,10 @@ func (db *DB) batchSet(entries []*entry) error {
 // batchSetAsync is the asynchronous version of batchSet. It accepts a callback
 // function which is called when all the sets are complete. If a request level
 // error occurs, it will be passed back via the callback.
-//   err := kv.BatchSetAsync(entries, func(err error)) {
-//      Check(err)
-//   }
+//
+//	err := kv.BatchSetAsync(entries, func(err error)) {
+//	   Check(err)
+//	}
 func (db *DB) batchSetAsync(entries []*entry, f func(error)) error {
 	req, err := db.sendToWriteCh(entries)
 	if err != nil {
@@ -724,7 +700,7 @@ func arenaSize(opt Options) int64 {
 }
 
 // WriteLevel0Table flushes memtable. It drops deleteValues.
-func writeLevel0Table(s *skl.Skiplist, f *os.File) error {
+func writeLevel0Table(s *segring.SegRing, f *os.File) error {
 	iter := s.NewIterator()
 	defer iter.Close()
 	b := table.NewTableBuilder()
@@ -739,7 +715,7 @@ func writeLevel0Table(s *skl.Skiplist, f *os.File) error {
 }
 
 type flushTask struct {
-	mt   *skl.Skiplist
+	mt   *segring.SegRing
 	vptr valuePointer
 }
 
