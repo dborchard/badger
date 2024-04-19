@@ -234,13 +234,9 @@ type Iterator struct {
 // Using prefetch is highly recommended if you're doing a long running iteration.
 // Avoid long running iterations in update transactions.
 func (txn *Txn) NewIterator(opt IteratorOptions) *Iterator {
-	tables, decr := txn.db.getMemTables()
-	defer decr()
 	txn.db.vlog.incrIteratorCount()
-	var iters []y.Iterator
-	for i := 0; i < len(tables); i++ {
-		iters = append(iters, tables[i].NewUniIterator(opt.Reverse))
-	}
+	var iters = make([]y.Iterator, 1)
+	iters[0] = txn.db.mt.GetCurrSegment().NewIterator()
 	iters = txn.db.lc.appendIterators(iters, opt.Reverse) // This will increment references.
 	res := &Iterator{
 		txn:    txn,

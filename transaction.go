@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dgraph-io/badger/y"
 	farm "github.com/dgryski/go-farm"
@@ -117,7 +118,7 @@ func (o *oracle) newCommitTs(txn *Txn) uint64 {
 	if !o.isManaged {
 		// This is the general case, when user doesn't specify the read and commit ts.
 		ts = o.nextCommit
-		o.nextCommit++
+		o.nextCommit = uint64(time.Now().UnixNano())
 
 	} else {
 		// If commitTs is set, use it instead.
@@ -402,9 +403,9 @@ func (txn *Txn) CommitAt(commitTs uint64, callback func(error)) error {
 // to. Commit API internally runs Discard, but running it twice wouldn't cause
 // any issues.
 //
-//  txn := db.NewTransaction(false)
-//  defer txn.Discard()
-//  // Call various APIs.
+//	txn := db.NewTransaction(false)
+//	defer txn.Discard()
+//	// Call various APIs.
 func (db *DB) NewTransaction(update bool) *Txn {
 	txn := &Txn{
 		update: update,

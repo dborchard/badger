@@ -1,47 +1,51 @@
 package segring
 
-import "github.com/dgraph-io/badger/y"
+import (
+	"container/list"
+	"github.com/dgraph-io/badger/y"
+	"github.com/tidwall/btree"
+	"io"
+)
 
 type SegIterator struct {
+	iter btree.IterG[Pair[[]byte, *list.Element]]
+	err  error
 }
 
 var _ y.Iterator = new(SegIterator)
 
-func (s *SegIterator) Next() {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Next() {
+	s.iter.Next()
 }
 
-func (s *SegIterator) Rewind() {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Rewind() {
+	s.iter.First()
 }
 
-func (s *SegIterator) Seek(key []byte) {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Seek(key []byte) {
+	forwarded := s.iter.Seek(Pair[[]byte, *list.Element]{Key: key})
+	if !forwarded {
+		s.err = io.EOF
+	}
 }
 
-func (s *SegIterator) Key() []byte {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Key() []byte {
+	return s.iter.Item().Key
 }
 
-func (s *SegIterator) Value() y.ValueStruct {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Value() y.ValueStruct {
+	return s.iter.Item().Val.Value.(y.ValueStruct)
 }
 
-func (s *SegIterator) Valid() bool {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Valid() bool {
+	return s.err != nil
 }
 
-func (s *SegIterator) Close() error {
-	//TODO implement me
-	panic("implement me")
+func (s SegIterator) Close() error {
+	s.iter.Release()
+	return nil
 }
 
-func (s *SegIterator) SeekToFirst() {
-
+func (s SegIterator) SeekToFirst() {
+	s.iter.First()
 }
