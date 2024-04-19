@@ -22,7 +22,10 @@ func (s *SegIterator) Next() {
 }
 
 func (s *SegIterator) Rewind() {
-	s.iter.First()
+	moved := s.iter.First()
+	if !moved {
+		s.err = io.EOF
+	}
 }
 
 func (s *SegIterator) Seek(key []byte) {
