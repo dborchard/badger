@@ -20,15 +20,14 @@ import (
 	"bytes"
 	"container/heap"
 	"fmt"
+	"github.com/dgraph-io/badger/timez"
+	"github.com/dgraph-io/badger/y"
+	farm "github.com/dgryski/go-farm"
+	"github.com/pkg/errors"
 	"math"
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	"github.com/dgraph-io/badger/y"
-	farm "github.com/dgryski/go-farm"
-	"github.com/pkg/errors"
 )
 
 type uint64Heap []uint64
@@ -118,7 +117,7 @@ func (o *oracle) newCommitTs(txn *Txn) uint64 {
 	if !o.isManaged {
 		// This is the general case, when user doesn't specify the read and commit ts.
 		ts = o.nextCommit
-		o.nextCommit = uint64(time.Now().UnixNano())
+		o.nextCommit = timez.Now()
 
 	} else {
 		// If commitTs is set, use it instead.

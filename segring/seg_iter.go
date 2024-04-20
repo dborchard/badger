@@ -36,7 +36,7 @@ func (s *SegIterator) Seek(key []byte) {
 }
 
 func (s *SegIterator) Key() []byte {
-	return s.iter.Item().Key
+	return y.ParseKey(s.iter.Item().Key)
 }
 
 func (s *SegIterator) Value() y.ValueStruct {

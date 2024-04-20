@@ -22,6 +22,7 @@ import (
 	"context"
 	"expvar"
 	"github.com/dgraph-io/badger/segring"
+	"github.com/dgraph-io/badger/timez"
 	"log"
 	"math"
 	"os"
@@ -222,7 +223,7 @@ func Open(opt Options) (db *DB, err error) {
 
 	orc := &oracle{
 		isManaged:      opt.ManagedTxns,
-		nextCommit:     uint64(time.Now().UnixNano()),
+		nextCommit:     timez.Now(),
 		pendingCommits: make(map[uint64]struct{}),
 		commits:        make(map[uint64]uint64),
 	}
@@ -290,7 +291,7 @@ func Open(opt Options) (db *DB, err error) {
 
 	replayCloser.SignalAndWait() // Wait for replay to be applied first.
 	// Now that we have the curRead, we can update the nextCommit.
-	db.orc.nextCommit = uint64(time.Now().UnixNano())
+	db.orc.nextCommit = timez.Now()
 
 	// Mmap writable log
 	lf := db.vlog.filesMap[db.vlog.maxFid]
